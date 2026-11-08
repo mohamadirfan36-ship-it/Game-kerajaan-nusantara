@@ -1,0 +1,135 @@
+<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Petualangan Menjelajahi Kerajaan Nusantara</title><style>
+:root{--g:#e8b931;--t:#fff4d6;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#16241c;color:var(--t);font:15px/1.5 Georgia,serif;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+#app{max-width:880px;margin:auto;padding:8px}
+#hud{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-weight:700;margin-bottom:6px;font-size:14px}
+#hud .s{padding:6px 10px;border:0;border-radius:8px;background:var(--g);color:#3a2200;font:700 14px Georgia,serif;cursor:pointer}
+#hl{flex:1;min-width:140px}
+canvas{width:100%;display:block;border:3px solid var(--g);border-radius:12px;background:#000;touch-action:none}
+#ms,#inv{margin:6px 0;padding:6px 10px;background:#0005;border-radius:8px;font-size:14px}
+#bar{height:8px;background:#0006;border-radius:4px;overflow:hidden;margin-top:4px}#hp{height:100%;width:0;background:var(--g);transition:width .4s}
+#pad{display:none;justify-content:space-between;align-items:end;margin-top:8px}
+@media(pointer:coarse){#pad{display:flex}}
+#dp{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(2,56px);gap:4px}
+#pad button{border:2px solid var(--g);border-radius:12px;background:#0008;color:var(--t);font-size:22px;touch-action:none}
+[data-k=arrowup]{grid-area:1/2}[data-k=arrowleft]{grid-area:2/1}[data-k=arrowdown]{grid-area:2/2}[data-k=arrowright]{grid-area:2/3}
+#eb{width:72px;height:72px;background:var(--g)!important;color:#3a2200!important;font-weight:700}
+#ov{position:fixed;inset:0;background:rgba(10,20,14,.92);display:none;align-items:center;justify-content:center;padding:12px;z-index:9;overflow:auto}#ov.on{display:flex}
+.card{background:linear-gradient(#5a3b22,#3a2515);border:3px solid var(--g);border-radius:16px;padding:18px;max-width:640px;width:100%;max-height:92vh;overflow:auto;animation:pop .3s}
+@keyframes pop{from{transform:scale(.85);opacity:0}}
+h1{font-size:26px;line-height:1.15;margin:0 0 6px;color:var(--g);text-align:center}h2{margin:0 0 8px;color:var(--g)}
+.sub{text-align:center;font-style:italic;margin:0 0 8px}.hero{font-size:44px;text-align:center}
+.b{display:block;width:100%;margin:6px 0;padding:10px 12px;border:2px solid #7a5415;border-radius:10px;background:linear-gradient(#f6d55c,#d39a1e);color:#3a2200;font:700 15px Georgia,serif;cursor:pointer;text-align:left}
+.b.on{outline:3px solid #fff}.b.t{background:linear-gradient(#cfe8d5,#8cc3a0)}.b:disabled{opacity:.4}.b.h{width:auto;display:inline-block}
+.b:focus-visible,#hud .s:focus-visible{outline:3px solid #fff}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:8px}.fb{background:#0006;padding:8px;border-radius:8px;margin:8px 0}
+.frag{font-size:20px;text-align:center;padding:10px;border:2px dashed var(--g);border-radius:12px;margin:8px 0;animation:pop .6s}
+.big{font-size:22px;text-align:center}.lv{opacity:1}.lv.k{opacity:.5}
+@media(max-width:520px){.cols{grid-template-columns:1fr}h1{font-size:21px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+</style></head><body><div id="app">
+<div id="hud"><span id="hl"></span><span id="hs"></span><span id="hv"></span><span id="ha"></span><span id="hq"></span><button class="s" id="ps" title="Jeda (ESC)">⏸</button><button class="s" id="snd" title="Suara">🔊</button><button class="s" id="hm" title="Menu">🏠</button></div>
+<div id="bar"><div id="hp"></div></div>
+<canvas id="c" width="800" height="480"></canvas>
+<div id="ms"></div><div id="inv"></div>
+<div id="pad"><div id="dp"><button data-k="arrowup">▲</button><button data-k="arrowleft">◀</button><button data-k="arrowdown">▼</button><button data-k="arrowright">▶</button></div><button id="eb">E</button></div>
+</div><div id="ov"></div>
+<script>
+const $=s=>document.querySelector(s),cv=$('#c'),x=cv.getContext('2d'),W=800,H=480,ov=$('#ov'),MAX=3500;
+const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+let snd=true,AC,G=null,keys={},last=0,parts=[];
+const D0=()=>({u:0,sc:[0,0,0,0,0],d:[]});let S;
+try{S=JSON.parse(localStorage.getItem('nus5'))||D0()}catch(e){S=D0()}
+const save=()=>{try{localStorage.setItem('nus5',JSON.stringify(S))}catch(e){}},tot=()=>S.sc.reduce((a,b)=>a+b,0);
+function beep(f,d=.15,t='sine',v=.07,at=0){if(!snd)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain(),s=AC.currentTime+at;o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,s);g.gain.exponentialRampToValueAtTime(.001,s+d);o.connect(g);g.connect(AC.destination);o.start(s);o.stop(s+d)}catch(e){}}
+const okS=()=>[523,659,784,1047].forEach((f,i)=>beep(f,.25,'triangle',.08,i*.1)),bad=()=>beep(140,.3,'sawtooth',.06),pick=()=>{beep(880,.1);beep(1175,.2,'sine',.07,.09)};
+setInterval(()=>{if(snd&&G&&!ov.classList.contains('on'))beep([262,294,330,392,440][Math.random()*5|0],.6,'sine',.025)},800);
+const LV=[
+{n:'Kerajaan Kutai',e:'🌳',bg:'#3d7a4a',wc:'#1f4d2e',ms:'Temukan 3 Prasasti Yupa',w:[[190,0,40,180],[190,300,40,180],[400,120,40,240],[590,0,40,170]],
+a:[[320,60,'Prasasti Yupa I','Yupa adalah tugu batu persembahan dari Muara Kaman, Kalimantan Timur. Ditulis dengan huruf Pallawa berbahasa Sanskerta, berasal dari sekitar abad ke-5 M.'],[320,425,'Prasasti Yupa II','Yupa menyebut Kudungga, Aswawarman, dan Mulawarman. Nama Kudungga belum bercorak India, tetapi nama anak dan cucunya sudah, tanda pengaruh Hindu masuk bertahap.'],[690,330,'Prasasti Yupa III','Yupa mencatat Raja Mulawarman bersedekah 20.000 ekor sapi kepada kaum Brahmana di tempat suci Waprakeswara. Ini menunjukkan hubungan erat raja dan Brahmana.']],
+np:[110,110,'💂','Penjaga Kerajaan','Selamat datang, pengelana! Kutai adalah salah satu kerajaan Hindu tertua yang diketahui di Indonesia. Carilah tiga yupa yang tersebar di sekitar sini.'],st:[730,80,'🧩','Meja Catatan'],
+pz:{t:'p',u:1,ti:'Susun Informasi Prasasti Yupa',in:'Cocokkan nama dengan keterangan yang tepat. Jawaban salah mengurangi nyawa.',items:[['Prasasti Yupa',0],['Mulawarman',1],['Kudungga',2],['Aswawarman',3]],tg:['Tugu batu persembahan berhuruf Pallawa dan berbahasa Sanskerta','Raja Kutai yang menyedekahkan 20.000 ekor sapi kepada Brahmana','Tokoh awal dalam silsilah, kakek Mulawarman','Putra Kudungga, disebut sebagai pendiri keluarga (wangsa) raja'],h:'Perhatikan silsilah: Kudungga, lalu Aswawarman, lalu Mulawarman. Yupa adalah tugunya.'},
+fr:'Kutai (Kalimantan Timur, sekitar abad ke-5 M) adalah kerajaan bercorak Hindu tertua yang diketahui. Sumber utamanya tujuh yupa; rajanya yang terkenal adalah Mulawarman.'},
+{n:'Kerajaan Tarumanegara',e:'🌊',bg:'#5aa06a',wc:'#2a6fb0',ms:'Temukan 3 prasasti Tarumanegara',w:[[260,0,50,190],[260,290,50,190],[520,100,50,380]],
+a:[[400,50,'Prasasti Ciaruteun','Ditemukan di tepi Sungai Ciaruteun dekat Bogor. Berisi pahatan telapak kaki Purnawarman dan tulisan Pallawa-Sanskerta yang menyamakan jejaknya dengan telapak kaki Dewa Wisnu.'],[400,430,'Prasasti Tugu','Ditemukan di daerah Tugu, Jakarta Utara. Menyebut penggalian saluran Candrabaga dan Gomati pada masa Purnawarman untuk mengendalikan banjir dan mendukung pertanian.'],[650,200,'Prasasti Kebon Kopi','Memuat jejak kaki gajah yang dikaitkan dengan Airawata, gajah tunggangan Dewa Indra, dan ditafsirkan sebagai lambang kebesaran raja.']],
+np:[130,380,'🧑‍🌾','Penduduk Sungai','Sungai sangat penting bagi pertanian di sini. Prasasti Tugu menunjukkan raja memperhatikan pengairan. Cari tiga prasasti di sekitar sungai ini!'],st:[720,420,'🧩','Catatan Arkeologi'],
+pz:{t:'p',u:1,ti:'Cocokkan Prasasti dan Informasinya',in:'Hubungkan nama peninggalan dengan keterangan yang sesuai.',items:[['Prasasti Ciaruteun',0],['Prasasti Tugu',1],['Prasasti Kebon Kopi',2],['Purnawarman',3]],tg:['Berisi pahatan telapak kaki raja, ditemukan dekat Bogor','Menyebut penggalian saluran air untuk mengatasi banjir dan pertanian','Bergambar jejak kaki gajah Airawata','Raja Tarumanegara yang disebut dalam prasasti-prasasti tersebut'],h:'Ingat: Ciaruteun = telapak kaki raja, Tugu = saluran air, Kebon Kopi = gajah.'},
+fr:'Tarumanegara (Jawa Barat, abad ke-5 M) adalah kerajaan awal bercorak Hindu dengan raja Purnawarman. Sumbernya prasasti Ciaruteun, Tugu, dan Kebon Kopi.'},
+{n:'Kerajaan Sriwijaya',e:'🌊',bg:'#d9c58a',wc:'#1b6aa5',ms:'Kumpulkan 3 artefak di pelabuhan',w:[[220,100,60,100],[220,300,60,100],[460,0,50,200],[460,280,50,200],[640,160,40,160]],
+a:[[350,60,'Prasasti Kedukan Bukit','Ditemukan di Palembang, bertarikh 683 M. Menceritakan perjalanan suci (siddhayatra) Dapunta Hyang bersama ribuan pasukan, sering dianggap awal berdirinya Sriwijaya.'],[350,420,'Prasasti Talang Tuo','Ditemukan dekat Palembang, bertarikh 684 M. Menyebut pembuatan taman Sriksetra demi kebaikan semua makhluk, bercorak Buddha.'],[570,240,'Peti Kapur Barus','Kapur barus dan hasil hutan lain diperdagangkan lewat pelabuhan Sriwijaya. Letaknya di jalur Selat Malaka menjadikan Sriwijaya pusat perdagangan maritim.']],
+np:[110,240,'🧑‍💼','Pedagang','Kapal dari Tiongkok dan India singgah di sini. Pendeta Tiongkok bernama I-Tsing mencatat bahwa Sriwijaya menjadi pusat belajar agama Buddha pada abad ke-7. Cari artefak di pelabuhan!'],st:[740,420,'🚢','Gudang Dagang'],
+pz:{t:'p',ti:'Kelompokkan Barang Dagangan',in:'Pilih sebuah barang, lalu pilih kelompoknya.',items:[['Kapur barus',0],['Gaharu',0],['Kemenyan',0],['Porselen Tiongkok',1],['Sutra Tiongkok',1],['Kain dari India',1]],tg:['Hasil bumi Nusantara yang dijual','Barang yang dibawa pedagang asing'],h:'Hasil hutan dan rempah berasal dari Nusantara; porselen, sutra, dan kain datang dari luar.'},
+fr:'Sriwijaya (Sumatra, abad ke-7 M dan seterusnya) adalah kerajaan maritim Buddha yang menguasai jalur Selat Malaka. Sumbernya antara lain Kedukan Bukit, Talang Tuo, dan berita I-Tsing.'},
+{n:'Kerajaan Mataram Kuno',e:'🪨',bg:'#b9a98a',wc:'#6e6a62',ms:'Temukan 3 bukti candi dan prasasti',w:[[200,150,60,180],[400,0,50,200],[400,300,50,180],[600,100,40,300]],
+a:[[320,60,'Prasasti Canggal','Berangka 732 M, ditemukan di Gunung Wukir, Magelang. Menyebut Raja Sanjaya dan pendirian lingga (Siwa), bukti awal dinasti Sanjaya yang beragama Hindu.'],[320,425,'Relief Borobudur','Relief Borobudur menggambarkan ajaran Buddha dan kehidupan masyarakat. Candi ini dibangun pada masa dinasti Syailendra (Buddha Mahayana), sekitar abad ke-8 sampai ke-9 M.'],[520,240,'Arca Siwa Prambanan','Prambanan adalah candi Hindu (Siwa) dari abad ke-9 M. Pembangunannya sering dikaitkan dengan Rakai Pikatan dari dinasti Sanjaya.']],
+np:[90,400,'🧑‍🎨','Arsitek Kerajaan','Mataram Kuno dikenal dengan dua dinasti: Sanjaya (Hindu) dan Syailendra (Buddha). Keduanya meninggalkan candi megah. Temukan buktinya!'],st:[730,240,'🏯','Lokasi Pembangunan'],
+pz:{t:'o',ti:'Bangun Candi Borobudur',in:'Klik bagian bangunan dari bawah ke atas dengan urutan yang benar.',items:['Kamadhatu: kaki candi (dunia nafsu)','Rupadhatu: lorong berelief (dunia berwujud)','Arupadhatu: teras bundar berstupa (dunia tanpa rupa)','Stupa induk di puncak'],h:'Borobudur disusun dari tiga tingkat: Kamadhatu, Rupadhatu, lalu Arupadhatu, dengan stupa induk di puncak.'},
+fr:'Mataram Kuno (Jawa Tengah) dikuasai dinasti Sanjaya (Hindu, Prambanan) dan Syailendra (Buddha, Borobudur). Peninggalannya menunjukkan hubungan kerajaan, agama, dan arsitektur.'},
+{n:'Kerajaan Majapahit',e:'🧱',bg:'#a8734a',wc:'#6b2e1f',ms:'Kumpulkan bukti untuk membuka ruang arsip',w:[[180,100,40,300],[360,0,40,160],[360,320,40,160],[540,100,40,300]],
+a:[[280,60,'Kitab Negarakertagama','Ditulis Mpu Prapanca tahun 1365 M. Kitab ini menggambarkan wilayah, upacara, dan kehidupan istana pada masa Hayam Wuruk, sumber penting sejarah Majapahit.'],[280,425,'Catatan Sumpah Palapa','Menurut Pararaton, Gajah Mada bersumpah tidak akan menikmati palapa sebelum menyatukan Nusantara. Karena berasal dari naskah, sumber ini perlu dibaca secara kritis.'],[450,240,'Arca Harihara','Arca ini ditafsirkan sebagai perwujudan Raden Wijaya sebagai Harihara (Siwa-Wisnu). Raden Wijaya mendirikan Majapahit tahun 1293 setelah Kediri runtuh.']],
+np:[100,400,'🧑‍⚖️','Pejabat Istana','Majapahit mencapai puncak kejayaan pada masa Raja Hayam Wuruk dengan patih Gajah Mada. Pusat kerajaan berada di Trowulan, Jawa Timur. Buka ruang arsip dengan bukti sejarah!'],st:[730,240,'📜','Ruang Arsip Rahasia'],
+pz:{t:'o',ti:'Susun Kronologi Majapahit',in:'Klik kartu peristiwa dari yang paling awal sampai paling akhir.',items:['1293: Raden Wijaya mendirikan Majapahit','Abad ke-14: Gajah Mada mengucapkan Sumpah Palapa','1350: Hayam Wuruk naik takhta','1365: Negarakertagama selesai ditulis','1389: Hayam Wuruk wafat, Majapahit mulai melemah'],h:'Urutan: berdiri, Sumpah Palapa, Hayam Wuruk naik takhta, Negarakertagama, lalu kemunduran.'},
+fr:'Majapahit (Jawa Timur, berdiri 1293) mencapai puncak pada masa Hayam Wuruk dan Gajah Mada. Sumber pentingnya Negarakertagama dan Pararaton.'}];
+function show(h){ov.innerHTML='<div class="card">'+h+'</div>';ov.classList.add('on');ov.dataset.p=''}
+function hide(){ov.classList.remove('on');ov.dataset.p=''}
+const btn=(f,t)=>`<button class="b" onclick="${f}">${t}</button>`;
+function menu(){G=null;show(`<h1>PETUALANGAN MENJELAJAHI KERAJAAN NUSANTARA</h1><p class="sub">Misi Rahasia Sang Arkeolog Muda</p><div class="hero">🏛️🧭🗺️</div>${btn('story()','▶ MULAI PETUALANGAN')}${S.d.length?btn('mapS()','📂 Lanjutkan ('+S.d.length+'/5 level)'):''}${btn('help()','📖 PETUNJUK PERMAINAN')}${btn('about()','ℹ️ TENTANG GAME &amp; REFERENSI')}`)}
+function story(){show(`<h2>Prolog</h2><p>Di sebuah ruang penyimpanan museum yang sunyi, ARKA, arkeolog muda, menemukan artefak kuno yang bersinar redup. Saat disentuh, cahayanya membuka gerbang waktu.</p><p>ARKA terlempar ke masa kerajaan Hindu-Buddha di Nusantara. Namun mesin waktunya retak! Hanya <b>lima Fragmen Sejarah</b> yang dapat memperbaikinya, masing-masing tersembunyi di sebuah kerajaan.</p><p>Jelajahi, bertanya, baca prasasti, dan pecahkan teka-teki. Sejarah adalah kuncimu pulang.</p>${btn('mapS()','🗺️ Buka Peta Perjalanan')}`)}
+function help(){show(`<h2>Petunjuk Permainan</h2><p><b>Gerak:</b> panah atau WASD (layar sentuh: tombol arah). <b>Interaksi:</b> tombol E di dekat objek (✨ artefak, tokoh, dan stasiun 🧩). <b>Jeda:</b> ESC atau tombol ⏸. Mouse/sentuh dipakai pada teka-teki.</p><p><b>Misi tiap level:</b> temukan 3 artefak, bicara dengan tokoh, lalu selesaikan teka-teki di stasiun.</p><p><b>Skor:</b> artefak +100, teka-teki +150, misi +200, bicara dengan tokoh +50, petunjuk -10. Maksimal 3500. Nyawa 3 per level; jawaban salah mengurangi nyawa.</p><p><b>Gelar:</b> 90–100% Ahli Sejarah Nusantara; 75–89% Penjelajah Sejarah; di bawah 75% Penjelajah Pemula.</p>${btn('menu()','⬅ Kembali')}`)}
+function about(){show(`<h2>Tentang Game</h2><p>Game pembelajaran Sejarah Indonesia kelas X (Fase E): Kerajaan Hindu-Buddha di Indonesia. Seluruh visual dan suara dibuat dengan Canvas dan Web Audio tanpa aset luar. Progres tersimpan di perangkat.</p><p><b>Referensi bacaan:</b></p><ul><li>Buku teks Sejarah Indonesia Kelas X, Kemendikbud.</li><li>Sejarah Nasional Indonesia II dan III, Balai Pustaka.</li><li>Kakawin Negarakertagama (Mpu Prapanca, 1365 M).</li><li>Laman Cagar Budaya Kemendikbudristek.</li></ul>${btn('menu()','⬅ Kembali')}<button class="b" onclick="if(confirm('Hapus semua progres?')){S=D0();save();menu()}">🗑 Hapus Progres</button>`)}
+function mapS(){G=null;const p=tot()/MAX*100|0;show(`<h2>🗺️ Peta Perjalanan</h2><p>Skor ${tot()} • Penyelesaian ${S.d.length*20}% • Fragmen ${S.d.length}/5</p>`+LV.map((l,i)=>`<button class="b${i>S.u?' t':''}" ${i>S.u?'disabled':''} onclick="startLevel(${i})">${i>S.u?'🔒':S.d.includes(i)?'✅':'📍'} Level ${i+1}: ${l.n} ${S.d.includes(i)?'('+S.sc[i]+' poin)':''}</button>`).join('')+btn('menu()','🏠 Menu'))}
+function startLevel(i){if(i>S.u)return;const L=LV[i];G={i,got:[],talk:0,pd:0,lives:3,score:0,x:50,y:240,fx:1,t:0,mv:0,msg:'',mt:0};parts=[];$('#app').style.display='block';show(`<h2>${L.e} Level ${i+1}: ${L.n}</h2><p><b>Misi:</b> ${L.ms}, lalu selesaikan teka-teki di ${L.st[2]} ${L.st[3]}.</p><p>Bicaralah dengan ${L.np[2]} ${L.np[3]} untuk petunjuk. Tekan E di dekat objek.</p>${btn('hide()','Mulai')}`);hud()}
+function hud(){if(!G){['#hl','#hs','#hv','#ha','#hq','#ms','#inv'].forEach(s=>$(s).textContent='');$('#hp').style.width='0';return}const L=LV[G.i];$('#hl').textContent='Level '+(G.i+1)+': '+L.n;$('#hs').textContent='⭐ '+(tot()-S.sc[G.i]+G.score);$('#hv').textContent='❤️'.repeat(G.lives)+'🖤'.repeat(3-G.lives);$('#ha').textContent='🏺 '+G.got.length+'/3';
+const u=S.d.filter(k=>k!=G.i).length*4+G.got.length+G.pd;$('#hq').textContent='📊 '+(u*5)+'%';$('#hp').style.width=(u*5)+'%';
+$('#ms').textContent='🎯 Misi: '+L.ms+(G.got.length==3?' → Datangi '+L.st[3]+' ('+L.st[2]+')':'')+' | 🧩 Fragmen: '+S.d.length+'/5';$('#inv').textContent='🎒 Inventaris: '+(G.got.map(k=>L.a[k][2]).join(' • ')||'masih kosong')}
+function pause(){show(`<h2>⏸ Jeda</h2>${btn('hide()','▶ Lanjutkan')}${btn('startLevel('+G.i+')','🔄 Ulangi Level')}${btn('mapS()','🗺️ Peta')}${btn('menu()','🏠 Menu Utama')}`);ov.dataset.p=1}
+const near=(o,r)=>Math.hypot(G.x-o[0],G.y-o[1])<r,toast=m=>{G.msg=m;G.mt=2.5};
+function fx(a,b){for(let k=0;k<22;k++)parts.push({x:a,y:b,vx:(Math.random()-.5)*240,vy:(Math.random()-.9)*220,l:1})}
+function act(){if(!G||ov.classList.contains('on'))return;const L=LV[G.i];
+for(let k=0;k<3;k++){const a=L.a[k];if(!G.got.includes(k)&&near(a,45)){G.got.push(k);G.score+=100;fx(a[0],a[1]);pick();hud();show(`<h2>✨ ${a[2]}</h2><p>Hebat! Kamu berhasil menemukan ${a[2]}.</p><p>${a[3]}</p><p><b>+100 poin</b></p>${btn('hide()','Lanjut')}`);return}}
+if(near(L.np,50)){const f=!G.talk;if(f){G.talk=1;G.score+=50;hud()}show(`<h2>${L.np[2]} ${L.np[3]}</h2><p>${L.np[4]}</p>${f?'<p><b>+50 poin (tantangan tambahan)</b></p>':''}${btn('hide()','Lanjut')}`);return}
+if(near(L.st,50)){if(G.got.length<3){toast('Temukan dulu ketiga artefak ('+G.got.length+'/3)!');bad();return}puz()}}
+function puz(){const p=LV[G.i].pz;G.p={sel:null,done:[],m:0,fb:'Ayo mulai! Klik dengan teliti.',tg:p.t=='p'?shuf(p.tg.map((_,i)=>i)):0,or:p.t=='o'?shuf(p.items.map((_,i)=>i)):0};dp()}
+function dp(){const p=LV[G.i].pz,q=G.p;let h=`<h2>🧩 ${p.ti}</h2><p>${p.in}</p><div class="fb">${q.fb}</div>`;
+if(p.t=='p')h+='<div class="cols"><div>'+p.items.map((it,i)=>q.done.includes(i)?'':`<button class="b${q.sel==i?' on':''}" onclick="ps(${i})">${it[0]}</button>`).join('')+'</div><div>'+q.tg.map(j=>`<button class="b t" onclick="pt(${j})" ${p.u&&q.done.some(i=>p.items[i][1]==j)?'disabled':''}>${p.tg[j]}</button>`).join('')+'</div></div>';
+else h+='<p><b>Tersusun:</b></p><ol>'+p.items.slice(0,q.m).map(s=>`<li>${s}</li>`).join('')+'</ol><div>'+q.or.filter(i=>i>=q.m).map(i=>`<button class="b" onclick="po(${i})">${p.items[i]}</button>`).join('')+'</div>';
+show(h+`<button class="b h" onclick="ph()">💡 Petunjuk (-10)</button> <span>❤️ ${G.lives}</span>`)}
+function ps(i){G.p.sel=i;G.p.fb='Sekarang pilih pasangan atau kelompoknya di sisi kanan.';dp()}
+function pt(j){const p=LV[G.i].pz,q=G.p;if(q.sel==null){q.fb='Pilih dulu salah satu item di sisi kiri.';return dp()}
+if(p.items[q.sel][1]==j){q.done.push(q.sel);q.fb='✅ Tepat! '+p.items[q.sel][0]+': '+p.tg[j]+'.';q.sel=null;beep(784,.2,'triangle');if(q.done.length==p.items.length)return fin();dp()}else lose()}
+function po(i){const p=LV[G.i].pz,q=G.p;if(i==q.m){q.m++;q.fb='✅ Benar! Urutan ke-'+q.m+' sudah tepat.';beep(784,.2,'triangle');if(q.m==p.items.length)return fin();dp()}else lose()}
+function ph(){G.score=Math.max(0,G.score-10);hud();G.p.fb='💡 '+LV[G.i].pz.h;dp()}
+function lose(){G.lives--;hud();bad();if(!G.lives)return show(`<h2>😢 Kesempatan habis</h2><p>Jangan menyerah! Baca kembali informasi artefak, lalu coba lagi.</p>${btn('startLevel('+G.i+')','🔄 Ulangi Level')}${btn('menu()','🏠 Menu')}`);G.p.fb='❌ Belum tepat. '+LV[G.i].pz.h;dp()}
+function fin(){G.score+=150;hud();okS();fx(W/2,H/2);show(`<h2>🎉 Teka-teki selesai!</h2><p>Bagus! Kamu berhasil menghubungkan bukti sejarah dengan informasi yang tepat.</p><p><b>+150 poin</b></p>${btn('fin2()','Lanjut')}`)}
+function fin2(){const i=G.i,L=LV[i];G.pd=1;G.score+=200;S.sc[i]=Math.max(S.sc[i],G.score);if(!S.d.includes(i))S.d.push(i);S.u=Math.max(S.u,Math.min(4,i+1));save();hud();okS();
+show(`<h2>🏆 Misi Level ${i+1} Selesai! (+200)</h2><div class="frag">🧩 Fragmen Sejarah ke-${i+1} diperoleh!</div><p>${L.fr}</p><p>Skor level: <b>${G.score}</b></p>${i<4?btn('startLevel('+(i+1)+')','➡ Level Berikutnya'):btn('endG()','🏁 Lihat Hasil Akhir')}${btn('startLevel('+i+')','🔄 Ulangi Level')}${btn('mapS()','🗺️ Peta')}`)}
+function endG(){const p=tot()/MAX*100,r=p>=90?'Ahli Sejarah Nusantara':p>=75?'Penjelajah Sejarah':'Penjelajah Pemula';G=null;
+show(`<h1>🏆 ARKEOLOG NUSANTARA</h1><p class="sub">Kelima Fragmen Sejarah terkumpul. Mesin waktu pulih dan ARKA kembali ke masa kini!</p><p class="big">Skor: ${tot()} / ${MAX} (${p|0}%)</p><p class="big">Gelar: <b>${r}</b></p><p style="text-align:center">🏺 Artefak ${S.d.length*3}/15 • 🎯 Misi ${S.d.length}/5 • 🧩 Fragmen ${S.d.length}/5</p>${btn('S=D0();save();mapS()','🔁 Main Lagi dari Awal')}${btn('menu()','🏠 Menu')}`)}
+function upd(dt){const k=keys,dx=(k.arrowright||k.d?1:0)-(k.arrowleft||k.a?1:0),dy=(k.arrowdown||k.s?1:0)-(k.arrowup||k.w?1:0);
+const hit=(px,py)=>px<9||py<9||px>W-9||py>H-9||LV[G.i].w.some(r=>px+9>r[0]&&px-9<r[0]+r[2]&&py+9>r[1]&&py-9<r[1]+r[3]);
+if(dx||dy){const s=150*dt/Math.hypot(dx,dy);let nx=G.x+dx*s;if(!hit(nx,G.y))G.x=nx;let ny=G.y+dy*s;if(!hit(G.x,ny))G.y=ny;G.mv=1;G.t+=dt;if(dx)G.fx=dx}else G.mv=0;
+if(G.mt>0)G.mt-=dt;parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=400*dt;p.l-=dt});parts=parts.filter(p=>p.l>0)}
+function draw(t){const L=LV[G.i];x.fillStyle=L.bg;x.fillRect(0,0,W,H);x.fillStyle='rgba(255,255,255,.08)';for(let k=0;k<50;k++)x.fillRect((k*137+G.i*53)%W,(k*71+G.i*29)%H,6,3);
+x.font='30px serif';x.textAlign='center';x.textBaseline='middle';
+L.w.forEach(r=>{x.fillStyle=L.wc;x.fillRect(...r);for(let a=r[0]+18;a<r[0]+r[2];a+=36)for(let b=r[1]+18;b<r[1]+r[3];b+=36)x.fillText(L.e,a,b)});
+L.a.forEach((a,k)=>{if(!G.got.includes(k)){x.globalAlpha=.55+.45*Math.sin(t*4+k);x.fillText('✨',a[0],a[1]);x.globalAlpha=1}});
+x.font='34px serif';x.fillText(L.np[2],L.np[0],L.np[1]);x.fillText(L.st[2],L.st[0],L.st[1]);x.font='bold 12px Georgia';x.fillStyle='#fff';x.strokeStyle='#000';x.lineWidth=3;
+[[L.np,L.np[3]],[L.st,L.st[3]]].forEach(([o,n])=>{x.strokeText(n,o[0],o[1]+26);x.fillText(n,o[0],o[1]+26)});
+const tg=[...L.a.filter((_,k)=>!G.got.includes(k)),L.np,L.st].find(o=>near(o,50));if(tg){x.strokeText('[E]',tg[0],tg[1]-28);x.fillText('[E]',tg[0],tg[1]-28)}
+const bob=G.mv?Math.sin(G.t*14)*3:0;x.fillStyle='rgba(0,0,0,.3)';x.beginPath();x.ellipse(G.x,G.y+14,11,4,0,0,7);x.fill();
+x.save();x.translate(G.x,G.y);x.scale(G.fx,1);x.fillStyle='#7a4a1e';x.fillRect(-13,-6,7,14);x.fillStyle='#2e86c1';x.fillRect(-7,-6,14,14);x.fillStyle='#4a3a2a';x.fillRect(-6,8,5,5+bob);x.fillRect(1,8,5,5-bob);
+x.fillStyle='#f1c27d';x.beginPath();x.arc(0,-12,8,0,7);x.fill();x.fillStyle='#c8a050';x.fillRect(-10,-17,20,4);x.fillRect(-6,-24,12,8);x.fillStyle='#000';x.fillRect(3,-13,2,2);x.restore();
+parts.forEach(p=>{x.globalAlpha=Math.max(0,p.l);x.fillStyle='#ffd24a';x.fillRect(p.x,p.y,5,5)});x.globalAlpha=1;
+if(G.mt>0){x.font='bold 15px Georgia';const w=x.measureText(G.msg).width+24;x.fillStyle='rgba(0,0,0,.8)';x.fillRect(W/2-w/2,H-50,w,32);x.fillStyle='#ffd24a';x.fillText(G.msg,W/2,H-34)}}
+function loop(t){const dt=Math.min(.05,(t-last)/1000||0);last=t;if(G){if(!ov.classList.contains('on'))upd(dt);draw(t/1000)}else x.clearRect(0,0,W,H);requestAnimationFrame(loop)}
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)&&G)e.preventDefault();
+if(k=='escape'){if(G&&!ov.classList.contains('on'))pause();else if(ov.dataset.p)hide();return}keys[k]=1;if(k=='e')act()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);addEventListener('blur',()=>keys={});
+document.querySelectorAll('#dp button').forEach(b=>{const k=b.dataset.k;b.onpointerdown=e=>{e.preventDefault();keys[k]=1};['pointerup','pointerleave','pointercancel'].forEach(v=>b['on'+v]=()=>keys[k]=0)});
+$('#eb').onpointerdown=e=>{e.preventDefault();act()};
+$('#ps').onclick=()=>{if(G&&!ov.classList.contains('on'))pause()};$('#hm').onclick=menu;
+$('#snd').onclick=()=>{snd=!snd;$('#snd').textContent=snd?'🔊':'🔇'};
+cv.addEventListener('pointerdown',()=>{try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();AC.resume()}catch(e){}});
+menu();requestAnimationFrame(loop);
+</script></body></html>
